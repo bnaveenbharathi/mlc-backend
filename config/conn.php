@@ -1,9 +1,9 @@
 <?php
 class Database {
     private $host = "localhost";
-    private $user = "gnthealt_mlc";
-    private $pass = "gnthealt_mlc";
-    private $db   = "gnthealt_mlc";
+    private $user = "vattava2_mlc";
+    private $pass = "vattava2_mlc";
+    private $db   = "vattava2_mlc";
 
     
     // private $host = "localhost";
