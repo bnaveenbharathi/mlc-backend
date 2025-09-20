@@ -2,7 +2,7 @@
 // categories.php
 error_reporting(E_ERROR | E_PARSE);
 ini_set('display_errors', 0);
-header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Origin: https://www.magiclightcrackers.com/");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Content-Type: application/json");
