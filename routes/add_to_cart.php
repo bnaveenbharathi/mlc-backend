@@ -1,7 +1,6 @@
 <?php
 // Disable warnings/notices to avoid breaking JSON
-error_reporting(E_ERROR | E_PARSE);
-ini_set('display_errors', 0);
+
 
 // CORS & headers
 header("Access-Control-Allow-Origin: *"); 
