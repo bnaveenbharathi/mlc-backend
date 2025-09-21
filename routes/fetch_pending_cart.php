@@ -24,18 +24,19 @@ $conn = $db->connect();
 
 try {
     // Fetch pending order for this user
+
     $stmt = $conn->prepare("SELECT id FROM orders WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    $res = $stmt->get_result();
-
-    if ($res->num_rows === 0) {
+    $stmt->store_result();
+    $order_id = 0;
+    if ($stmt->num_rows === 0) {
         echo json_encode(["status" => "success", "items" => []]);
         exit();
     }
-
-    $order = $res->fetch_assoc();
-    $order_id = $order['id'];
+    $stmt->bind_result($order_id);
+    $stmt->fetch();
+    $stmt->close();
 
     // Fetch order items
     $stmt_items = $conn->prepare("
@@ -46,17 +47,19 @@ try {
     ");
     $stmt_items->bind_param("i", $order_id);
     $stmt_items->execute();
-    $res_items = $stmt_items->get_result();
+    $stmt_items->store_result();
+    $stmt_items->bind_result($product_id, $quantity, $price, $name);
 
     $items = [];
-    while ($row = $res_items->fetch_assoc()) {
+    while ($stmt_items->fetch()) {
         $items[] = [
-            "product_id" => (int)$row['product_id'],
-            "name" => $row['name'],
-            "quantity" => (int)$row['quantity'],
-            "price" => (float)$row['price']
+            "product_id" => (int)$product_id,
+            "name" => $name,
+            "quantity" => (int)$quantity,
+            "price" => (float)$price
         ];
     }
+    $stmt_items->close();
 
     echo json_encode(["status" => "success", "items" => $items]);
 
