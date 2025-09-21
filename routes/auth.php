@@ -1,6 +1,6 @@
 <?php
 
-error_reporting(0);
+
 header("Access-Control-Allow-Origin: *"); 
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
@@ -14,7 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once('../config/conn.php'); 
 
 
+
 $input = json_decode(file_get_contents("php://input"), true);
+if (!$input) {
+    http_response_code(400);
+    echo json_encode(["status" => "error", "message" => "Invalid or missing JSON input"]);
+    exit();
+}
 $action = $_GET['action'] ?? '';
 
 if (!$action) {
@@ -76,26 +82,30 @@ try {
         }
 
         $stmt = $conn->prepare("SELECT id, name, email, password FROM users WHERE email=?");
+        if (!$stmt) {
+            http_response_code(500);
+            echo json_encode(["status" => "error", "message" => "DB prepare failed: " . $conn->error]);
+            exit();
+        }
         $stmt->bind_param("s", $email);
         $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows === 0) {
+        $stmt->store_result();
+        if ($stmt->num_rows === 0) {
             echo json_encode(["status" => "error", "message" => "User not found"]);
             exit();
         }
-
-        $user = $result->fetch_assoc();
-        if (!password_verify($password, $user['password'])) {
+        $stmt->bind_result($id, $name, $email_db, $password_hash);
+        $stmt->fetch();
+        if (!isset($password_hash) || !password_verify($password, $password_hash)) {
             echo json_encode(["status" => "error", "message" => "Invalid password"]);
             exit();
         }
-
         echo json_encode([
             "status" => "success",
             "user" => [
-                "id" => $user['id'],
-                "name" => $user['name'],
-                "email" => $user['email']
+                "id" => $id,
+                "name" => $name,
+                "email" => $email_db
             ]
         ]);
         exit();
