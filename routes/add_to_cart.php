@@ -17,10 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once("../config/conn.php");
 
 
-$data = json_decode(file_get_contents("php://input"), true);
+
+$raw_input = file_get_contents("php://input");
+$data = json_decode($raw_input, true);
 if (!$data) {
+    error_log("add_to_cart.php: Invalid or missing JSON input: " . $raw_input);
     http_response_code(400);
-    echo json_encode(["status" => "error", "message" => "Invalid or missing JSON input", "debug" => file_get_contents("php://input")]);
+    echo json_encode(["status" => "error", "message" => "Invalid or missing JSON input", "debug" => $raw_input]);
     exit();
 }
 
@@ -31,17 +34,19 @@ $price = $data['price'] ?? null;
 
 // Validate required fields
 if (!$user_id || !$product_id || !$price) {
+    $debug_info = [
+        "user_id" => $user_id,
+        "product_id" => $product_id,
+        "quantity" => $quantity,
+        "price" => $price,
+        "raw_input" => $data
+    ];
+    error_log("add_to_cart.php: Missing required fields: " . json_encode($debug_info));
     http_response_code(400);
     echo json_encode([
         "status" => "error",
         "message" => "Missing required fields",
-        "debug" => [
-            "user_id" => $user_id,
-            "product_id" => $product_id,
-            "quantity" => $quantity,
-            "price" => $price,
-            "raw_input" => $data
-        ]
+        "debug" => $debug_info
     ]);
     exit();
 }
@@ -99,6 +104,7 @@ try {
     exit();
 
 } catch (Exception $e) {
+    error_log("add_to_cart.php: Exception: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         "status" => "error",
