@@ -9,6 +9,13 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Content-Type: application/json");
 
+// Enable error display for local debugging
+if (in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1'])) {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+}
+
 // Handle preflight request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -24,9 +31,11 @@ $data = json_decode($raw_input, true);
 if (!$data) {
     error_log("add_to_cart.php: Invalid or missing JSON input: " . $raw_input);
     http_response_code(400);
+    $is_local = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
     echo json_encode([
         "status" => "error",
-        "message" => "Invalid or missing JSON input"
+        "message" => "Invalid or missing JSON input",
+        "debug" => $is_local ? $raw_input : null
     ]);
     exit();
 }
@@ -40,9 +49,11 @@ $price      = isset($data['price']) ? (float)$data['price'] : null;
 if ($user_id === null || $product_id === null || $price === null) {
     error_log("add_to_cart.php: Missing required fields: " . json_encode($data));
     http_response_code(400);
+    $is_local = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
     echo json_encode([
         "status" => "error",
-        "message" => "Missing required fields"
+        "message" => "Missing required fields",
+        "debug" => $is_local ? $data : null
     ]);
     exit();
 }
@@ -108,9 +119,11 @@ try {
 } catch (Exception $e) {
     error_log("add_to_cart.php: Exception: " . $e->getMessage());
     http_response_code(500);
+    $is_local = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
     echo json_encode([
         "status" => "error",
-        "message" => "Server error"
+        "message" => $is_local ? ("Server error: " . $e->getMessage()) : "Server error",
+        "debug" => $is_local ? $e->getTraceAsString() : null
     ]);
     exit();
 }
