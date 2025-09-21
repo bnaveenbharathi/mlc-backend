@@ -30,13 +30,15 @@ try {
     $stmt = $conn->prepare("SELECT id FROM orders WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    $res = $stmt->get_result();
-    if ($res->num_rows === 0) {
+    $stmt->store_result();
+    $order_id = null;
+    if ($stmt->num_rows === 0) {
         echo json_encode(["status" => "error", "message" => "No pending order"]);
         exit();
     }
-    $order = $res->fetch_assoc();
-    $order_id = $order['id'];
+    $stmt->bind_result($order_id);
+    $stmt->fetch();
+    $stmt->close();
 
     if ($quantity > 0) {
         // Update or insert item
