@@ -69,11 +69,12 @@ try {
     $stmt_order = $conn->prepare("SELECT id FROM orders WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
     $stmt_order->bind_param("i", $user_id);
     $stmt_order->execute();
-    $res_order = $stmt_order->get_result();
 
-    if ($res_order->num_rows > 0) {
-        $order = $res_order->fetch_assoc();
-        $order_id = $order['id'];
+    $stmt_order->store_result();
+    $order_id = null;
+    if ($stmt_order->num_rows > 0) {
+        $stmt_order->bind_result($order_id);
+        $stmt_order->fetch();
     } else {
         // 2. Create new pending order
         $stmt_create = $conn->prepare("INSERT INTO orders (user_id, status, created_at, updated_at) VALUES (?, 'pending', NOW(), NOW())");
@@ -88,16 +89,16 @@ try {
     $stmt_check = $conn->prepare("SELECT id, quantity FROM order_items WHERE order_id = ? AND product_id = ?");
     $stmt_check->bind_param("ii", $order_id, $product_id);
     $stmt_check->execute();
-    $res_check = $stmt_check->get_result();
+    $stmt_check->store_result();
 
-    if ($res_check->num_rows > 0) {
-        // Already in cart → update quantity & subtotal
-        $item = $res_check->fetch_assoc();
-        $new_quantity = $item['quantity'] + $quantity;
+    if ($stmt_check->num_rows > 0) {
+        $stmt_check->bind_result($item_id, $old_quantity);
+        $stmt_check->fetch();
+        $new_quantity = $old_quantity + $quantity;
         $subtotal = $price * $new_quantity;
 
         $stmt_update = $conn->prepare("UPDATE order_items SET quantity = ?, subtotal = ?, updated_at = NOW() WHERE id = ?");
-        $stmt_update->bind_param("idi", $new_quantity, $subtotal, $item['id']);
+        $stmt_update->bind_param("idi", $new_quantity, $subtotal, $item_id);
         $stmt_update->execute();
         $stmt_update->close();
     } else {
