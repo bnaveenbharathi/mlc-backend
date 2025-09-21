@@ -1,20 +1,14 @@
 <?php
-// -------------------------
-// add_to_cart.php
-// -------------------------
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 // CORS & headers
 header("Access-Control-Allow-Origin: *"); 
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Content-Type: application/json");
-
-// Enable error display for local debugging
-if (in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1'])) {
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
-    error_reporting(E_ALL);
-}
 
 // Handle preflight request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -31,29 +25,28 @@ $data = json_decode($raw_input, true);
 if (!$data) {
     error_log("add_to_cart.php: Invalid or missing JSON input: " . $raw_input);
     http_response_code(400);
-    $is_local = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
     echo json_encode([
         "status" => "error",
         "message" => "Invalid or missing JSON input",
-        "debug" => $is_local ? $raw_input : null
+        "debug" => $raw_input
     ]);
     exit();
 }
 
-$user_id    = isset($data['user_id']) ? (int)$data['user_id'] : null;
-$product_id = isset($data['product_id']) ? (int)$data['product_id'] : null;
-$quantity   = isset($data['quantity']) ? (int)$data['quantity'] : 1;
-$price      = isset($data['price']) ? (float)$data['price'] : null;
+// Always cast to correct types
+$user_id    = isset($data['user_id']) ? intval($data['user_id']) : null;
+$product_id = isset($data['product_id']) ? intval($data['product_id']) : null;
+$quantity   = isset($data['quantity']) ? intval($data['quantity']) : 1;
+$price      = isset($data['price']) ? floatval($data['price']) : null;
 
-// Validate required fields (null check instead of falsey check)
+// Validate required fields
 if ($user_id === null || $product_id === null || $price === null) {
     error_log("add_to_cart.php: Missing required fields: " . json_encode($data));
     http_response_code(400);
-    $is_local = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
     echo json_encode([
         "status" => "error",
         "message" => "Missing required fields",
-        "debug" => $is_local ? $data : null
+        "debug" => $data
     ]);
     exit();
 }
@@ -61,6 +54,15 @@ if ($user_id === null || $product_id === null || $price === null) {
 // Connect DB
 $db = new Database();
 $conn = $db->connect();
+if (!$conn) {
+    error_log("add_to_cart.php: Database connection failed");
+    http_response_code(500);
+    echo json_encode([
+        "status" => "error",
+        "message" => "Database connection failed"
+    ]);
+    exit();
+}
 
 try {
     // 1. Find existing pending order for user
@@ -119,13 +121,11 @@ try {
 } catch (Exception $e) {
     error_log("add_to_cart.php: Exception: " . $e->getMessage());
     http_response_code(500);
-    $is_local = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
     echo json_encode([
         "status" => "error",
-        "message" => $is_local ? ("Server error: " . $e->getMessage()) : "Server error",
-        "debug" => $is_local ? $e->getTraceAsString() : null
+        "message" => "Server error: " . $e->getMessage(),
+        "debug" => $e->getTraceAsString()
     ]);
     exit();
 }
-
 ?>
