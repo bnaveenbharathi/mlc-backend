@@ -16,8 +16,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once("../config/conn.php");
 
-// Decode incoming JSON
+
 $data = json_decode(file_get_contents("php://input"), true);
+if (!$data) {
+    http_response_code(400);
+    echo json_encode(["status" => "error", "message" => "Invalid or missing JSON input", "debug" => file_get_contents("php://input")]);
+    exit();
+}
 
 $user_id = $data['user_id'] ?? null;
 $product_id = $data['product_id'] ?? null;
@@ -27,7 +32,17 @@ $price = $data['price'] ?? null;
 // Validate required fields
 if (!$user_id || !$product_id || !$price) {
     http_response_code(400);
-    echo json_encode(["status" => "error", "message" => "Missing required fields"]);
+    echo json_encode([
+        "status" => "error",
+        "message" => "Missing required fields",
+        "debug" => [
+            "user_id" => $user_id,
+            "product_id" => $product_id,
+            "quantity" => $quantity,
+            "price" => $price,
+            "raw_input" => $data
+        ]
+    ]);
     exit();
 }
 
