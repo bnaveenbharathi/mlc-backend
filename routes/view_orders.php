@@ -40,33 +40,38 @@ try {
         WHERE o.user_id = ? AND o.status = 'completed'
         ORDER BY o.created_at DESC, oi.created_at ASC
     ");
+
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    $res = $stmt->get_result();
+    $stmt->store_result();
+    $stmt->bind_result(
+        $order_id, $total_amount, $created_at, $updated_at, $delivery_status, $payment,
+        $product_id, $quantity, $price, $subtotal, $item_created_at, $item_updated_at, $product_name
+    );
     $orders = [];
-    while ($row = $res->fetch_assoc()) {
-        $order_id = $row['order_id'];
+    while ($stmt->fetch()) {
         if (!isset($orders[$order_id])) {
             $orders[$order_id] = [
                 "order_id" => $order_id,
-                "total_amount" => $row['total_amount'],
-                "order_placed_at" => $row['created_at'],
-                "delivery_status" => $row['delivery_status'],
-                "delivery_date" => $row['updated_at'],
-                "payment_status" => $row['payment'],
+                "total_amount" => $total_amount,
+                "order_placed_at" => $created_at,
+                "delivery_status" => $delivery_status,
+                "delivery_date" => $updated_at,
+                "payment_status" => $payment,
                 "products" => []
             ];
         }
         $orders[$order_id]['products'][] = [
-            "product_id" => $row['product_id'],
-            "product_name" => $row['product_name'],
-            "price" => $row['price'],
-            "quantity" => $row['quantity'],
-            "subtotal" => $row['subtotal'],
-            "item_created_at" => $row['item_created_at'],
-            "item_updated_at" => $row['item_updated_at']
+            "product_id" => $product_id,
+            "product_name" => $product_name,
+            "price" => $price,
+            "quantity" => $quantity,
+            "subtotal" => $subtotal,
+            "item_created_at" => $item_created_at,
+            "item_updated_at" => $item_updated_at
         ];
     }
+    $stmt->close();
     // Re-index orders numerically
     $orders = array_values($orders);
 
