@@ -40,30 +40,28 @@ if (!$user_id) {
 try {
     // 1. Find the latest pending order for the user, including orderID
 
+
     $stmt = $conn->prepare("SELECT id, orderID, total_amount FROM orders WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    $res = $stmt->get_result();
-
-    if ($res->num_rows === 0) {
+    $stmt->store_result();
+    $stmt->bind_result($order_id, $orderID, $total_amount);
+    if ($stmt->num_rows === 0) {
         http_response_code(404);
         echo json_encode(["status" => "error", "message" => "No pending order found."]);
         exit();
     }
-
-    $order = $res->fetch_assoc();
-    $order_id = $order['id'];
-    $orderID = $order['orderID'];
-    $total_amount = $order['total_amount'];
-
+    $stmt->fetch();
+    $stmt->close();
 
     // 2. Recalculate total_amount from order_items
     $stmt_sum = $conn->prepare("SELECT SUM(subtotal) as total FROM order_items WHERE order_id = ?");
     $stmt_sum->bind_param("i", $order_id);
     $stmt_sum->execute();
-    $res_sum = $stmt_sum->get_result();
-    $row_sum = $res_sum->fetch_assoc();
-    $new_total = $row_sum['total'] ?? 0;
+    $stmt_sum->store_result();
+    $stmt_sum->bind_result($new_total);
+    $stmt_sum->fetch();
+    $stmt_sum->close();
 
     // 3. Update order status to completed and total_amount
     $stmt_update = $conn->prepare("UPDATE orders SET status = 'completed', total_amount = ?, updated_at = NOW() WHERE id = ?");
