@@ -14,22 +14,48 @@ $db = new Database();
 $conn = $db->connect();
 
 // Fetch order, user, and products info
+
 $stmt = $conn->prepare("SELECT o.id, o.orderID, o.total_amount, o.created_at, o.delivery_status, o.payment, o.user_id, u.name, u.phone, u.address FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ? LIMIT 1");
-$stmt->bind_param("s", $orderID);
+$stmt->bind_param("i", $orderID);
 $stmt->execute();
-$res = $stmt->get_result();
-$order = $res->fetch_assoc();
+$stmt->store_result();
+$stmt->bind_result($id, $orderID_val, $total_amount, $created_at, $delivery_status, $payment, $user_id, $name, $phone, $address);
+$order = null;
+if ($stmt->num_rows > 0) {
+    $stmt->fetch();
+    $order = [
+        'id' => $id,
+        'orderID' => $orderID_val,
+        'total_amount' => $total_amount,
+        'created_at' => $created_at,
+        'delivery_status' => $delivery_status,
+        'payment' => $payment,
+        'user_id' => $user_id,
+        'name' => $name,
+        'phone' => $phone,
+        'address' => $address
+    ];
+}
+$stmt->close();
 if (!$order) die("Order not found.");
 
 // Fetch products for this order
+
 $stmt2 = $conn->prepare("SELECT oi.quantity, oi.price, oi.subtotal, p.name as product_name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?");
 $stmt2->bind_param("i", $order['id']);
 $stmt2->execute();
-$res2 = $stmt2->get_result();
+$stmt2->store_result();
+$stmt2->bind_result($quantity, $price, $subtotal, $product_name);
 $products = [];
-while ($row = $res2->fetch_assoc()) {
-    $products[] = $row;
+while ($stmt2->fetch()) {
+    $products[] = [
+        'quantity' => $quantity,
+        'price' => $price,
+        'subtotal' => $subtotal,
+        'product_name' => $product_name
+    ];
 }
+$stmt2->close();
 
 // Delivery amount (default, not from backend)
 
