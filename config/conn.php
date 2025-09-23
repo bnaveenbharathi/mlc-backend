@@ -1,15 +1,15 @@
 <?php
 class Database {
-    private $host = "localhost";
-    private $user = "vattava2_mlc";
-    private $pass = "vattava2_mlc";
-    private $db   = "vattava2_mlc";
+    // private $host = "localhost";
+    // private $user = "vattava2_mlc";
+    // private $pass = "vattava2_mlc";
+    // private $db   = "vattava2_mlc";
 
     
-    // private $host = "localhost";
-    // private $user = "root";
-    // private $pass = "";
-    // private $db   = "mlc";
+    private $host = "localhost";
+    private $user = "root";
+    private $pass = "";
+    private $db   = "mlc";
     public $conn;
 
     public function connect() {
