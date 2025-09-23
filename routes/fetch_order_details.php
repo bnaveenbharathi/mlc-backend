@@ -12,11 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once("../config/conn.php");
 
 $data = json_decode(file_get_contents("php://input"), true);
-if (!isset($data['admin_token']) || $data['admin_token'] !== 'demo_token') {
-    http_response_code(401);
-    echo json_encode(["status" => "error", "message" => "Unauthorized"]);
-    exit();
-}
+
 if (!isset($data['order_id'])) {
     http_response_code(400);
     echo json_encode(["status" => "error", "message" => "Missing order_id"]);

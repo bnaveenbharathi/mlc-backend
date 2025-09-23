@@ -13,11 +13,6 @@ require_once("../config/conn.php");
 
 // Simple admin token check (replace with real auth in production)
 $data = json_decode(file_get_contents("php://input"), true);
-if (!isset($data['admin_token']) || $data['admin_token'] !== 'demo_token') {
-    http_response_code(401);
-    echo json_encode(["status" => "error", "message" => "Unauthorized"]);
-    exit();
-}
 
 $db = new Database();
 $conn = $db->connect();
