@@ -62,7 +62,48 @@ try {
     }
     $stmt->close();
 
-    // 2. Create order
+    // 2. Save order items with a temporary order_id (0)
+    if (!is_array($orderItems) || count($orderItems) === 0) {
+        echo json_encode([
+            "status" => "error",
+            "message" => "No order items provided",
+            "payload" => $orderItems
+        ]);
+        exit();
+    }
+    // Debug: log orderItems
+    file_put_contents('order_items_debug.log', print_r([
+        'order_id' => 0,
+        'orderItems' => $orderItems
+    ], true), FILE_APPEND);
+
+    $item_status = 'completed';
+    $temp_order_id = 0;
+    $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        echo json_encode(["status" => "error", "message" => "Prepare failed (order_items insert)", "mysql_error" => $conn->error]);
+        exit();
+    }
+    foreach ($orderItems as $item) {
+        $product_id = (int)$item['product_id'];
+        $quantity = (int)$item['quantity'];
+        $price = (float)$item['price'];
+        $subtotal = (float)$item['subtotal'];
+        $stmt->bind_param("iiidds", $temp_order_id, $product_id, $quantity, $price, $subtotal, $item_status);
+        if (!$stmt->execute()) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Order item insert failed",
+                "mysql_error" => $stmt->error,
+                "payload" => $item
+            ]);
+            $stmt->close();
+            exit();
+        }
+    }
+    $stmt->close();
+
+    // 3. Create order
     $total_amount = array_sum(array_column($orderItems, 'subtotal'));
     $order_status = 'completed';
     $delivery_status = 'processing';
@@ -81,44 +122,16 @@ try {
     $order_id = $stmt->insert_id;
     $stmt->close();
 
-    // 3. Save order items with error checking
-    if (!is_array($orderItems) || count($orderItems) === 0) {
-        echo json_encode([
-            "status" => "error",
-            "message" => "No order items provided",
-            "order_id" => $order_id,
-            "payload" => $orderItems
-        ]);
-        exit();
-    }
-    // Debug: log order_id and orderItems
-    file_put_contents('order_items_debug.log', print_r([
-        'order_id' => $order_id,
-        'orderItems' => $orderItems
-    ], true), FILE_APPEND);
-
-    $item_status = 'completed';
-    $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?)");
+    // 4. Update order_items with the real order_id
+    $stmt = $conn->prepare("UPDATE order_items SET order_id = ? WHERE order_id = 0");
     if (!$stmt) {
-        echo json_encode(["status" => "error", "message" => "Prepare failed (order_items insert)", "mysql_error" => $conn->error]);
+        echo json_encode(["status" => "error", "message" => "Prepare failed (order_items update)", "mysql_error" => $conn->error]);
         exit();
     }
-    foreach ($orderItems as $item) {
-        $product_id = (int)$item['product_id'];
-        $quantity = (int)$item['quantity'];
-        $price = (float)$item['price'];
-        $subtotal = (float)$item['subtotal'];
-        $stmt->bind_param("iiidds", $order_id, $product_id, $quantity, $price, $subtotal, $item_status);
-        if (!$stmt->execute()) {
-            echo json_encode([
-                "status" => "error",
-                "message" => "Order item insert failed",
-                "mysql_error" => $stmt->error,
-                "payload" => $item
-            ]);
-            $stmt->close();
-            exit();
-        }
+    $stmt->bind_param("i", $order_id);
+    if (!$stmt->execute()) {
+        echo json_encode(["status" => "error", "message" => "Order items update failed", "mysql_error" => $stmt->error]);
+        exit();
     }
     $stmt->close();
 
