@@ -31,8 +31,15 @@ $orderItems = $data['orderItems']; // array: [{product_id, quantity, price, subt
 try {
     // 1. Save user (insert or update)
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    if (!$stmt) {
+        echo json_encode(["status" => "error", "message" => "Prepare failed (user select)", "mysql_error" => $conn->error]);
+        exit();
+    }
     $stmt->bind_param("s", $email);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        echo json_encode(["status" => "error", "message" => "User select execute failed", "mysql_error" => $stmt->error]);
+        exit();
+    }
     $stmt->store_result();
     $user_id = null;
     if ($stmt->num_rows > 0) {
@@ -42,8 +49,15 @@ try {
     } else {
         $stmt->close();
         $stmt = $conn->prepare("INSERT INTO users (name, email, phone, address, info) VALUES (?, ?, ?, ?, ?)");
+        if (!$stmt) {
+            echo json_encode(["status" => "error", "message" => "Prepare failed (user insert)", "mysql_error" => $conn->error]);
+            exit();
+        }
         $stmt->bind_param("sssss", $name, $email, $phone, $address, $info);
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            echo json_encode(["status" => "error", "message" => "User insert execute failed", "mysql_error" => $stmt->error]);
+            exit();
+        }
         $user_id = $stmt->insert_id;
     }
     $stmt->close();
@@ -55,8 +69,15 @@ try {
     $payment_status = 'processing';
 
     $stmt = $conn->prepare("INSERT INTO orders (user_id, total_amount, status, delivery_status, payment) VALUES (?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        echo json_encode(["status" => "error", "message" => "Prepare failed (order insert)", "mysql_error" => $conn->error]);
+        exit();
+    }
     $stmt->bind_param("idsss", $user_id, $total_amount, $order_status, $delivery_status, $payment_status);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        echo json_encode(["status" => "error", "message" => "Order insert execute failed", "mysql_error" => $stmt->error]);
+        exit();
+    }
     $order_id = $stmt->insert_id;
     $stmt->close();
 
@@ -64,6 +85,10 @@ try {
     if (is_array($orderItems) && count($orderItems) > 0) {
         $item_status = 'completed';
         $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?)");
+        if (!$stmt) {
+            echo json_encode(["status" => "error", "message" => "Prepare failed (order_items insert)", "mysql_error" => $conn->error]);
+            exit();
+        }
         foreach ($orderItems as $item) {
             $product_id = (int)$item['product_id'];
             $quantity = (int)$item['quantity'];
