@@ -1,0 +1,70 @@
+<?php
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Content-Type: application/json");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+	http_response_code(200);
+	exit();
+}
+
+require_once("../config/conn.php");
+
+$db = new Database();
+$conn = $db->connect();
+
+$data = json_decode(file_get_contents("php://input"), true);
+
+$name = $data['name'];
+$email = $data['email'];
+$phone = $data['phone'];
+$address = $data['address'];
+$orderItems = $data['orderItems']; // array: [{product_id, quantity, price, subtotal}]
+
+try {
+    // 1. Save user (insert or update)
+    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $stmt->store_result();
+    $user_id = null;
+    if ($stmt->num_rows > 0) {
+        $stmt->bind_result($user_id);
+        $stmt->fetch();
+        // Optionally update user info here
+    } else {
+        $stmt->close();
+        $stmt = $conn->prepare("INSERT INTO users (name, email, phone, address) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $name, $email, $phone, $address);
+        $stmt->execute();
+        $user_id = $stmt->insert_id;
+    }
+    $stmt->close();
+
+    // 2. Create order
+    $total_amount = array_sum(array_column($orderItems, 'subtotal'));
+    $order_status = 'completed';
+    $delivery_status = 'processing';
+    $payment_status = 'processing';
+
+    $stmt = $conn->prepare("INSERT INTO orders (user_id, total_amount, status, delivery_status, payment) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("idsss", $user_id, $total_amount, $order_status, $delivery_status, $payment_status);
+    $stmt->execute();
+    $order_id = $stmt->insert_id;
+    $stmt->close();
+
+    // 3. Save order items
+    $item_status = 'completed';
+    $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?)");
+    foreach ($orderItems as $item) {
+        $stmt->bind_param("iiidds", $order_id, $item['product_id'], $item['quantity'], $item['price'], $item['subtotal'], $item_status);
+        $stmt->execute();
+    }
+    $stmt->close();
+
+    echo json_encode(["status" => "success", "order_id" => $order_id]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+}
