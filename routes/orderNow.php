@@ -1,12 +1,16 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Content-Type: application/json");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-	http_response_code(200);
-	exit();
+    http_response_code(200);
+    exit();
 }
 
 require_once("../config/conn.php");
@@ -20,6 +24,7 @@ $name = $data['name'];
 $email = $data['email'];
 $phone = $data['phone'];
 $address = $data['address'];
+$info = $data['information'];
 $orderItems = $data['orderItems']; // array: [{product_id, quantity, price, subtotal}]
 
 try {
@@ -35,8 +40,8 @@ try {
         // Optionally update user info here
     } else {
         $stmt->close();
-        $stmt = $conn->prepare("INSERT INTO users (name, email, phone, address) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $name, $email, $phone, $address);
+        $stmt = $conn->prepare("INSERT INTO users (name, email, phone, address, info) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $name, $email, $phone, $address, $info);
         $stmt->execute();
         $user_id = $stmt->insert_id;
     }
@@ -54,14 +59,29 @@ try {
     $order_id = $stmt->insert_id;
     $stmt->close();
 
-    // 3. Save order items
-    $item_status = 'completed';
-    $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?)");
-    foreach ($orderItems as $item) {
-        $stmt->bind_param("iiidds", $order_id, $item['product_id'], $item['quantity'], $item['price'], $item['subtotal'], $item_status);
-        $stmt->execute();
+    // 3. Save order items with error checking
+    if (is_array($orderItems) && count($orderItems) > 0) {
+        $item_status = 'completed';
+        $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?)");
+        foreach ($orderItems as $item) {
+            $product_id = (int)$item['product_id'];
+            $quantity = (int)$item['quantity'];
+            $price = (float)$item['price'];
+            $subtotal = (float)$item['subtotal'];
+            $stmt->bind_param("iiidds", $order_id, $product_id, $quantity, $price, $subtotal, $item_status);
+            if (!$stmt->execute()) {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "Order item insert failed",
+                    "mysql_error" => $stmt->error,
+                    "payload" => $item
+                ]);
+                $stmt->close();
+                exit();
+            }
+        }
+        $stmt->close();
     }
-    $stmt->close();
 
     echo json_encode(["status" => "success", "order_id" => $order_id]);
 } catch (Exception $e) {
